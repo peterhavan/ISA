@@ -29,6 +29,8 @@
 #include <ifaddrs.h>
 #include "isa-tazatel.h"
 
+#define SA struct sockaddr
+#define PORT 43
 #ifndef PCAP_ERRBUF_SIZE
 #define PCAP_ERRBUF_SIZE (256)
 #endif
@@ -102,6 +104,45 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
+
+	int sockfd, connfd;
+    struct sockaddr_in servaddr, cli;
+
+    // socket create and varification
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == -1) {
+        printf("socket creation failed...\n");
+        exit(0);
+    }
+    else
+        printf("Socket successfully created..\n");
+    bzero(&servaddr, sizeof(servaddr));
+
+    // assign IP, PORT
+		printf("%s\n", destinationAddress);
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = inet_addr(destinationAddress);
+    servaddr.sin_port = htons(PORT);
+
+    // connect the client socket to server socket
+		printf("haha\n");
+    if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr)) != 0) {
+        printf("connection with the server failed...\n");
+        //exit(0);
+    }
+    else
+        printf("connected to the server..\n");
+		entryAddress[14] = '\n';
+		char buffer[65535];
+		char *addr = "google.com\n";
+		send(sockfd, addr, strlen(addr), 0);
+		read(sockfd, buffer, 65535);
+		printf("%s\n", buffer);
+		//./isa-tazatel -q google.com -w whois.markmonitor.com
+    // close the socket
+    close(sockfd);
+
+		return 0;
 
 	if ((dev = pcap_lookupdev(errbuf)) == NULL)
 		errorMsg("ERROR: pcap_lookupdev() failed");
