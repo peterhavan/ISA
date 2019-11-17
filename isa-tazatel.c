@@ -30,6 +30,7 @@
 #include <sys/types.h>
 #include <ifaddrs.h>
 #include <resolv.h>
+#include <regex.h>
 #include "isa-tazatel.h"
 
 #define SA struct sockaddr
@@ -81,7 +82,7 @@ int main(int argc, char* argv[])
 		inet_pton(AF_INET, entryAddress, &sa.sin_addr.s_addr);
 		//sa.sin_addr.s_addr = inet_addr("81.2.195.254");
 
-		if (getnameinfo((struct sockaddr*)&sa, sizeof(sa), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), 0));
+		if (getnameinfo((struct sockaddr*)&sa, sizeof(sa), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NUMERICHOST));
 			printf("host=%s, serv=%s\n", hbuf, sbuf);
 	}
 	else if(isValidIpv6Address(entryAddress))
@@ -106,59 +107,6 @@ int main(int argc, char* argv[])
 	resolveDns(hbuf, ns_t_ns);
 	resolveDns(hbuf, ns_t_soa);
 	resolveDns(hbuf, ns_t_ptr);
-	//return 0;
-	/*u_char answer[1024] = "";
-	res_init();
-	int rv = res_query(entryAddress, ns_c_in, ns_t_soa, answer, sizeof(answer));
-	printf("rv=%d\n", rv);
-
-	ns_msg handle;
-	u_int opcode, rcode, id;
-	if (ns_initparse(answer, rv, &handle) < 0)
-		errorMsg("ERROR:ns_initparse()");
-	opcode = ns_msg_getflag(handle, ns_f_opcode);
-	rcode = ns_msg_getflag(handle, ns_f_rcode);
-	id = ns_msg_id(handle);
-	printf("%s,%s,%u\n", _res_opcodes[opcode], p_rcode(rcode), id);
-	//ns_flag flag;
-	ns_rr rr; // expanded resource record //
-	u_int16_t counter = ns_msg_count(handle, ns_s_an);
-	char buf[1024];
-	for (int i = 0; i < counter; i++)
-	{
-		ns_parserr(&handle, ns_s_an, i, &rr);
-		switch (ns_rr_type(rr))
-		{
-			case ns_t_soa:
-				printf("SOA found\n");
-				break;
-			case ns_t_a:
-				printf("A found\n");
-				break;
-			case ns_t_aaaa:
-				printf("AAAA found\n");
-				break;
-			case ns_t_mx:
-				printf("MX found\n");
-				break;
-			case ns_t_ns:
-				printf("NS found\n");
-				break;
-			case ns_t_ptr:
-				printf("PTR found\n");
-				break;
-			case ns_t_cname:
-				printf("CNAME found\n");
-				break;
-			case ns_t_txt:
-				printf("TXT found\n");
-				printf("%s\n", ns_rr_rdata(rr));
-				break;
-			default:
-				break;
-		}
-	}/*
-		//return 0;
 
 		/*struct sockaddr_in sa1; // could be IPv4 if you want
         char host[1024];
@@ -243,8 +191,6 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
-	//printf("%s\n", destinationAddress);
-	//printf("%s\n", entryAddress);
 
 	int sock;
   struct sockaddr_in servaddr, cli;
@@ -268,16 +214,23 @@ int main(int argc, char* argv[])
 	send(sock, entryAddress, strlen(entryAddress), 0);
 	int n = read(sock, buffer, 65535);
 
-	/*line = strtok(buffer, "\n");
+	regex_t re;
+	int retval;
+	line = strtok(buffer, "\n");
+	char *expression = "(^inetnum)|(^address)|(^admin-c)|(^country)|(^descr)|(^phone)";
 	while( line != NULL )
 	{
-		printf ("%s\n", line);
+		if (regcomp(&re, expression, REG_EXTENDED) != 0)
+			errorMsg("ERROR: regcomp()");
+		if ((retval = regexec(&re, line, 0, NULL, 0)) == 0)
+				printf("%s\n", line);
+		//printf ("%s\n", line);
 		line = strtok(NULL, "\n");
-	}*/
+	}
 	//printf("%d\t", n);
 	//n = read(sock, buffer, 65535);
 
-	printf("%s\n", buffer);
+	//printf("%s\n", buffer);
 
 
 	//./isa-tazatel -q google.com -w whois.markmonitor.com
@@ -331,10 +284,6 @@ int resolveDns(char *entryAddress, ns_type nsType)
 				break;
 			case ns_t_mx:
 				printf("MX:\t");
-				//printf("%s\n", ns_rr_rdata(rr));
-				// next line inspired by https://stackoverflow.com/questions/15476717/how-to-query-a-server-and-get-the-mx-a-ns-records
-				//ns_sprintrr(&handle, &rr, NULL, NULL, buf, sizeof(buf));
-				//printf("%s\n", buf);
 				ns_name_uncompress(ns_msg_base(handle), ns_msg_end(handle),
 										ns_rr_rdata(rr) + NS_INT16SZ, buf, sizeof(buf));
 				printf("%s\n", buf);
@@ -371,7 +320,6 @@ int resolveDns(char *entryAddress, ns_type nsType)
 /*******************************************************************
 	Inspired by https://stackoverflow.com/questions/791982/determine-if-a-string-is-a-valid-ipv4-address-in-c
 *******************************************************************/
-
 bool isValidIpv4Address(char *ipAddress)
 {
     struct sockaddr_in sa;
