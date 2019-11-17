@@ -72,8 +72,57 @@ int main(int argc, char* argv[])
 
 		u_char answer[1024] = "";
 		res_init();
-		int rv = res_query(entryAddress, ns_c_in, ns_t_txt, answer, sizeof(answer));
+		int rv = res_query(entryAddress, ns_c_in, ns_t_mx, answer, sizeof(answer));
 		printf("rv=%d\n", rv);
+
+		ns_msg handle;
+		u_int opcode, rcode, id;
+		if (ns_initparse(answer, rv, &handle) < 0)
+			errorMsg("ERROR:ns_initparse()");
+		opcode = ns_msg_getflag(handle, ns_f_opcode);
+		rcode = ns_msg_getflag(handle, ns_f_rcode);
+		id = ns_msg_id(handle);
+		printf("%s,%s,%u\n", _res_opcodes[opcode], p_rcode(rcode), id);
+		//ns_flag flag;
+		ns_rr rr; /* expanded resource record */
+		u_int16_t counter = ns_msg_count(handle, ns_s_an);
+		char buf[1024];
+		for (int i = 0; i < counter; i++)
+		{
+
+			ns_parserr(&handle, ns_s_an, i, &rr);
+			switch (ns_rr_type(rr))
+			{
+				case ns_t_soa:
+					printf("SOA found\n");
+					break;
+				case ns_t_a:
+					printf("A found\n");
+					break;
+				case ns_t_aaaa:
+					printf("AAAA found\n");
+					break;
+				case ns_t_mx:
+					printf("MX found\n");
+					break;
+				case ns_t_ns:
+					printf("NS found\n");
+					break;
+				case ns_t_ptr:
+					printf("PTR found\n");
+					break;
+				case ns_t_cname:
+					printf("CNAME found\n");
+					break;
+				case ns_t_txt:
+					printf("TXT found\n");
+					printf("%s\n", ns_rr_rdata(rr));
+					break;
+				default:
+					break;
+			}
+		}
+
 
 		//return 0;
 
