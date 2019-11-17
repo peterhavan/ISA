@@ -257,13 +257,8 @@ int resolveDns(char *entryAddress, ns_type nsType)
 		return -1;
 
 	ns_msg handle;
-	//u_int opcode, rcode, id;
 	if (ns_initparse(answer, rv, &handle) < 0)
 		errorMsg("ERROR:ns_initparse()");
-	//opcode = ns_msg_getflag(handle, ns_f_opcode);
-	//rcode = ns_msg_getflag(handle, ns_f_rcode);
-	//id = ns_msg_id(handle);
-	//printf("%s,%s,%u\n", _res_opcodes[opcode], p_rcode(rcode), id);
 	ns_rr rr; // expanded resource record //
 	u_int16_t counter = ns_msg_count(handle, ns_s_an);
 	char buf[1024];
@@ -276,7 +271,8 @@ int resolveDns(char *entryAddress, ns_type nsType)
 		{
 			case ns_t_soa:
 				printf("SOA:\t");
-				ns_sprintrr(&handle, &rr, NULL, NULL, buf, sizeof(buf));
+				ns_name_uncompress(ns_msg_base(handle), ns_msg_end(handle),
+														ns_rr_rdata(rr), buf, sizeof(buf));
 				printf("%s\n", buf);
 				break;
 			case ns_t_a:
