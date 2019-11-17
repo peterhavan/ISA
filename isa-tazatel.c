@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
 	int opt;
 	bool wflag = false, qflag = false, dflag = false, ipv6Flag = false, ipv4Flag = false;;
 	char destinationAddress[100], whoIsAddress[100], errbuf[PCAP_ERRBUF_SIZE];
-	char entryAddress[100];
+	char entryAddress[100], dnsServer[100];
 	//char sourceIp4[32], sourceIp6[50];
 	//char *dev;
 	while ((opt = getopt(argc, argv, "q:d:w:")) !=  -1)
@@ -62,6 +62,7 @@ int main(int argc, char* argv[])
 				break;
 			case 'd':
 				dflag = true;
+				strcpy(dnsServer, optarg);
 				break;
 			default:
 				errorMsg("wrong arguments");
@@ -70,15 +71,41 @@ int main(int argc, char* argv[])
 	if (!(qflag & wflag))
 		errorMsg("wrong arguments");
 
+	char hbuf[1024], sbuf[NI_MAXSERV];
+	strcpy(hbuf, entryAddress);
+	if (isValidIpv4Address(entryAddress))
+	{
+		//printf("IpV4\n");
+		struct sockaddr_in sa;
+		sa.sin_family = AF_INET;
+		inet_pton(AF_INET, entryAddress, &sa.sin_addr.s_addr);
+		//sa.sin_addr.s_addr = inet_addr("81.2.195.254");
+
+		if (getnameinfo((struct sockaddr*)&sa, sizeof(sa), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), 0));
+			printf("host=%s, serv=%s\n", hbuf, sbuf);
+	}
+	else if(isValidIpv6Address(entryAddress))
+	{
+		//printf("IpV6\n");
+		struct sockaddr_in6 sa6;
+		sa6.sin6_family = AF_INET6;
+		inet_pton(AF_INET6, entryAddress, &sa6.sin6_addr.s6_addr);
+		if (getnameinfo((struct sockaddr*)&sa6, sizeof(sa6), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV) == 0)
+			printf("host=%s, serv=%s\n", hbuf, sbuf);
+	}
+
 	//printf("entryAddress: %s\n", entryAddress);
+	res_init();
+	if (dflag)
+		inet_pton(AF_INET, dnsServer, &(_res.nsaddr_list[0].sin_addr.s_addr));
 	printf("========DNS========\n");
-	resolveDns(entryAddress, ns_t_a);
-	resolveDns(entryAddress, ns_t_aaaa);
-	resolveDns(entryAddress, ns_t_mx);
-	resolveDns(entryAddress, ns_t_cname);
-	resolveDns(entryAddress, ns_t_ns);
-	resolveDns(entryAddress, ns_t_soa);
-	resolveDns(entryAddress, ns_t_ptr);
+	resolveDns(hbuf, ns_t_a);
+	resolveDns(hbuf, ns_t_aaaa);
+	resolveDns(hbuf, ns_t_mx);
+	resolveDns(hbuf, ns_t_cname);
+	resolveDns(hbuf, ns_t_ns);
+	resolveDns(hbuf, ns_t_soa);
+	resolveDns(hbuf, ns_t_ptr);
 	//return 0;
 	/*u_char answer[1024] = "";
 	res_init();
@@ -149,7 +176,7 @@ int main(int argc, char* argv[])
 	//entryAddress[strlen(entryAddress)] = '\r';
 	//entryAddress[strlen(entryAddress)] = '\n';
 
-	char hbuf[1024], sbuf[NI_MAXSERV];
+/*	char hbuf[1024], sbuf[NI_MAXSERV];
 	if (isValidIpv4Address(entryAddress))
 	{
 		printf("IpV4\n");
@@ -169,7 +196,7 @@ int main(int argc, char* argv[])
 		inet_pton(AF_INET6, entryAddress, &sa6.sin6_addr.s6_addr);
 		if (getnameinfo((struct sockaddr*)&sa6, sizeof(sa6), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV) == 0)
 			printf("host=%s, serv=%s\n", hbuf, sbuf);
-	}
+	}*/
 	//strcpy(entryAddress, hbuf);
 	//else
 	//{
@@ -216,8 +243,8 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
-	printf("%s\n", destinationAddress);
-	printf("%s\n", entryAddress);
+	//printf("%s\n", destinationAddress);
+	//printf("%s\n", entryAddress);
 
 	int sock;
   struct sockaddr_in servaddr, cli;
@@ -234,23 +261,40 @@ int main(int argc, char* argv[])
   if (connect(sock, (SA*)&servaddr, sizeof(servaddr)) != 0)
 		errorMsg("connect(): FAILED");
 	char buffer[65535];
+	//char line[2048];
+	char *line = NULL;
 	//char *addr = "vutbr.cz\r\n";
 	//send(sock, addr, strlen(addr), 0);
 	send(sock, entryAddress, strlen(entryAddress), 0);
-	read(sock, buffer, 65535);
-	read(sock, buffer, 65535);
+	int n = read(sock, buffer, 65535);
+
+	/*line = strtok(buffer, "\n");
+	while( line != NULL )
+	{
+		printf ("%s\n", line);
+		line = strtok(NULL, "\n");
+	}*/
+	//printf("%d\t", n);
+	//n = read(sock, buffer, 65535);
+
 	printf("%s\n", buffer);
+
+
 	//./isa-tazatel -q google.com -w whois.markmonitor.com
   // close the socket
   close(sock);
 	//free(entryAddress);
+	char tmp[2048];
+
+	inet_ntop(AF_INET, &_res.nsaddr_list[0].sin_addr.s_addr, tmp, sizeof(tmp));
+	printf("%s\n", tmp);
 	return 0;
 }
 
 int resolveDns(char *entryAddress, ns_type nsType)
 {
 	u_char answer[1024] = "";
-	res_init();
+	//res_init();
 	int rv = res_query(entryAddress, ns_c_in, nsType, answer, sizeof(answer));
 	//printf("rv=%d\n", rv);
 	if (rv <= 0)
@@ -289,7 +333,10 @@ int resolveDns(char *entryAddress, ns_type nsType)
 				printf("MX:\t");
 				//printf("%s\n", ns_rr_rdata(rr));
 				// next line inspired by https://stackoverflow.com/questions/15476717/how-to-query-a-server-and-get-the-mx-a-ns-records
-				ns_sprintrr(&handle, &rr, NULL, NULL, buf, sizeof(buf));
+				//ns_sprintrr(&handle, &rr, NULL, NULL, buf, sizeof(buf));
+				//printf("%s\n", buf);
+				ns_name_uncompress(ns_msg_base(handle), ns_msg_end(handle),
+										ns_rr_rdata(rr) + NS_INT16SZ, buf, sizeof(buf));
 				printf("%s\n", buf);
 				break;
 			case ns_t_ns:
