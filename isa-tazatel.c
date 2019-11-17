@@ -11,6 +11,8 @@
 * Reused code from 2018/2019 ipk-scan project by Peter Havan (myself)  *
 ************************************************************************/
 
+//whois -h whois.nic.cz vutbr.cz
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <err.h>
@@ -39,25 +41,25 @@ int main(int argc, char* argv[])
 {
 	int opt;
 	bool wflag = false, qflag = false, dflag = false, ipv6Flag = false, ipv4Flag = false;;
-	char destinationAddress[100], entryAddress[100], whoIsAddress[100], errbuf[PCAP_ERRBUF_SIZE];
-	char sourceIp4[32], sourceIp6[50];
-	char *dev;
+	char destinationAddress[100], whoIsAddress[100], errbuf[PCAP_ERRBUF_SIZE];
+	char entryAddress[100];
+	//char sourceIp4[32], sourceIp6[50];
+	//char *dev;
 	while ((opt = getopt(argc, argv, "q:d:w:")) !=  -1)
 	{
 		switch (opt)
 		{
 			case 'q':
-				printf("%s\n", optarg);
+				//entryAddress = (char *) malloc(sizeof(optarg)+2*sizeof(char));
+				//printf("%ld", sizeof(optarg)+2*sizeof(char));
 				strcpy(entryAddress, optarg);
 				qflag = true;
 				break;
 			case 'w':
-				printf("%s\n", optarg);
 				strcpy(whoIsAddress, optarg);
 				wflag = true;
 				break;
 			case 'd':
-				printf("%s\n", optarg);
 				dflag = true;
 				break;
 			default:
@@ -72,6 +74,41 @@ int main(int argc, char* argv[])
 	/******************************************************************
 	* gethostbyname() cant deal with IPv6, we need to use getaddrinfo *
 	******************************************************************/
+
+	//printf("%d\n", isValidIpv4Address(entryAddress));
+
+	//entryAddress[strlen(entryAddress)] = '\r';
+	//entryAddress[strlen(entryAddress)] = '\n';
+
+	/*har hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+	if (isValidIpv4Address)
+	{
+		printf("IpV4\n");
+		struct sockaddr sa;
+		sa.sa_family = AF_INET;
+		inet_pton(AF_INET, entryAddress, &sa.sa_data);
+
+		if (getnameinfo(&sa, sizeof(sa), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV) == 0)
+  		printf("host=%s, serv=%s\n", hbuf, sbuf);
+	}
+	else if(isValidIpv6Address)
+	{
+		printf("IpV6\n");
+		struct sockaddr_in6 sa6;
+		sa6.sin6_family = AF_INET6;
+		inet_pton(AF_INET6, entryAddress, &sa6.sin6_addr);
+		if (getnameinfo((struct sockaddr*)&sa6, sizeof(sa6), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV) == 0)
+			printf("host=%s, serv=%s\n", hbuf, sbuf);
+	}
+
+	else
+	{*/
+		entryAddress[strlen(entryAddress)] = '\r';
+		entryAddress[strlen(entryAddress)] = '\n';
+	//}
+
+	//return 0;
+
 	struct addrinfo hints, *res;
 	int errcode;
 	void *ptr;
@@ -79,7 +116,6 @@ int main(int argc, char* argv[])
 	hints.ai_family = PF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags |= AI_CANONNAME;
-	printf("%s\n", entryAddress);
 	errcode = getaddrinfo (whoIsAddress, NULL, &hints, &res);
 	if (errcode != 0)
 		errorMsg("ERROR: gettaddrinfo()");
@@ -104,102 +140,51 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
+	printf("%s\n", destinationAddress);
 
-	int sockfd, connfd;
-    struct sockaddr_in servaddr, cli;
-
-    // socket create and varification
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd == -1) {
-        printf("socket creation failed...\n");
-        exit(0);
-    }
-    else
-        printf("Socket successfully created..\n");
-    bzero(&servaddr, sizeof(servaddr));
-
-    // assign IP, PORT
-		printf("%s\n", destinationAddress);
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = inet_addr(destinationAddress);
-    servaddr.sin_port = htons(PORT);
-
-    // connect the client socket to server socket
-		printf("haha\n");
-    if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr)) != 0) {
-        printf("connection with the server failed...\n");
-        //exit(0);
-    }
-    else
-        printf("connected to the server..\n");
-		entryAddress[14] = '\n';
-		char buffer[65535];
-		char *addr = "google.com\n";
-		send(sockfd, addr, strlen(addr), 0);
-		read(sockfd, buffer, 65535);
-		printf("%s\n", buffer);
-		//./isa-tazatel -q google.com -w whois.markmonitor.com
-    // close the socket
-    close(sockfd);
-
-		return 0;
-
-	if ((dev = pcap_lookupdev(errbuf)) == NULL)
-		errorMsg("ERROR: pcap_lookupdev() failed");
-
-	//getting address on the interface, inspired by
-	//https://stackoverflow.com/questions/33125710/how-to-get-ipv6-interface-address-using-getifaddr-function
-	struct ifaddrs *ifa, *ifa_tmp;
-	char sourceAddress[50];
-	if (getifaddrs(&ifa) == -1)
-		errorMsg("ERROR: getifaddrs() failed");
-	ifa_tmp = ifa;
-	while (ifa_tmp)
-	{
-		if ((ifa_tmp->ifa_addr) && ((ifa_tmp->ifa_addr->sa_family == AF_INET) ||
-																(ifa_tmp->ifa_addr->sa_family == AF_INET6)))
-		{
-			if (ifa_tmp->ifa_addr->sa_family == AF_INET)
-			{
-				// create IPv4 string
-				if (!strcmp(ifa_tmp->ifa_name, dev))
-				{
-					struct sockaddr_in *in = (struct sockaddr_in*) ifa_tmp->ifa_addr;
-					inet_ntop(AF_INET, &in->sin_addr, sourceAddress, sizeof(sourceAddress));
-					strcpy(sourceIp4, sourceAddress);
-				}
-			}
-
-			else
-			{
-				// create IPv6 string
-				if (!strcmp(ifa_tmp->ifa_name, dev))
-				{
-					struct sockaddr_in6 *in6 = (struct sockaddr_in6*) ifa_tmp->ifa_addr;
-					inet_ntop(AF_INET6, &in6->sin6_addr, sourceAddress, sizeof(sourceAddress));
-					strcpy(sourceIp6, sourceAddress);
-					break;
-				}
-			}
-		}
-		ifa_tmp = ifa_tmp->ifa_next;
-	}
-
-	if (ipv4Flag) // if IPv4 destinationAddress was found, we'll use that
-		sendV4Packet(sourceIp4, destinationAddress, dev);
-	else
-		sendV6Packet(sourceIp6, destinationAddress, dev);
+	int sock;
+  struct sockaddr_in servaddr, cli;
+  // socket create and varification
+  sock = socket(AF_INET, SOCK_STREAM, 0);
+  if (sock == -1)
+		errorMsg("socket(): FAILED");
+  bzero(&servaddr, sizeof(servaddr));
+  // assign IP, PORT
+  servaddr.sin_family = AF_INET;
+  servaddr.sin_addr.s_addr = inet_addr(destinationAddress);
+  servaddr.sin_port = htons(PORT);
+  // connect the client socket to server socket
+  if (connect(sock, (SA*)&servaddr, sizeof(servaddr)) != 0)
+		errorMsg("connect(): FAILED");
+	char buffer[65535];
+	//char *addr = "vutbr.cz\r\n";
+	//send(sock, addr, strlen(addr), 0);
+	send(sock, entryAddress, strlen(entryAddress), 0);
+	read(sock, buffer, 65535);
+	printf("%s\n", buffer);
+	//./isa-tazatel -q google.com -w whois.markmonitor.com
+  // close the socket
+  close(sock);
+	//free(entryAddress);
 	return 0;
 }
 
-void sendV4Packet(char *sourceIp4, char *destinationAddress, char *dev)
+/*******************************************************************
+	Inspired by https://stackoverflow.com/questions/791982/determine-if-a-string-is-a-valid-ipv4-address-in-c
+*******************************************************************/
+
+bool isValidIpv4Address(char *ipAddress)
 {
-	return;
+    struct sockaddr_in sa;
+    int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
+    return result != 0;
 }
 
-void sendV6Packet(char *sourceIp6, char *destinationAddress, char *dev)
+bool isValidIpv6Address(char *ipAddress)
 {
-	return;
+    struct sockaddr_in6 sa;
+    int result = inet_pton(AF_INET6, ipAddress, &(sa.sin6_addr));
+    return result != 0;
 }
 
 void errorMsg(char *msg)
