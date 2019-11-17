@@ -70,60 +70,67 @@ int main(int argc, char* argv[])
 	if (!(qflag & wflag))
 		errorMsg("wrong arguments");
 
-		u_char answer[1024] = "";
-		res_init();
-		int rv = res_query(entryAddress, ns_c_in, ns_t_mx, answer, sizeof(answer));
-		printf("rv=%d\n", rv);
+	//printf("entryAddress: %s\n", entryAddress);
+	printf("========DNS========\n");
+	resolveDns(entryAddress, ns_t_a);
+	resolveDns(entryAddress, ns_t_aaaa);
+	resolveDns(entryAddress, ns_t_mx);
+	resolveDns(entryAddress, ns_t_cname);
+	resolveDns(entryAddress, ns_t_ns);
+	resolveDns(entryAddress, ns_t_soa);
+	resolveDns(entryAddress, ns_t_ptr);
+	return 0;
+	/*u_char answer[1024] = "";
+	res_init();
+	int rv = res_query(entryAddress, ns_c_in, ns_t_soa, answer, sizeof(answer));
+	printf("rv=%d\n", rv);
 
-		ns_msg handle;
-		u_int opcode, rcode, id;
-		if (ns_initparse(answer, rv, &handle) < 0)
-			errorMsg("ERROR:ns_initparse()");
-		opcode = ns_msg_getflag(handle, ns_f_opcode);
-		rcode = ns_msg_getflag(handle, ns_f_rcode);
-		id = ns_msg_id(handle);
-		printf("%s,%s,%u\n", _res_opcodes[opcode], p_rcode(rcode), id);
-		//ns_flag flag;
-		ns_rr rr; /* expanded resource record */
-		u_int16_t counter = ns_msg_count(handle, ns_s_an);
-		char buf[1024];
-		for (int i = 0; i < counter; i++)
+	ns_msg handle;
+	u_int opcode, rcode, id;
+	if (ns_initparse(answer, rv, &handle) < 0)
+		errorMsg("ERROR:ns_initparse()");
+	opcode = ns_msg_getflag(handle, ns_f_opcode);
+	rcode = ns_msg_getflag(handle, ns_f_rcode);
+	id = ns_msg_id(handle);
+	printf("%s,%s,%u\n", _res_opcodes[opcode], p_rcode(rcode), id);
+	//ns_flag flag;
+	ns_rr rr; // expanded resource record //
+	u_int16_t counter = ns_msg_count(handle, ns_s_an);
+	char buf[1024];
+	for (int i = 0; i < counter; i++)
+	{
+		ns_parserr(&handle, ns_s_an, i, &rr);
+		switch (ns_rr_type(rr))
 		{
-
-			ns_parserr(&handle, ns_s_an, i, &rr);
-			switch (ns_rr_type(rr))
-			{
-				case ns_t_soa:
-					printf("SOA found\n");
-					break;
-				case ns_t_a:
-					printf("A found\n");
-					break;
-				case ns_t_aaaa:
-					printf("AAAA found\n");
-					break;
-				case ns_t_mx:
-					printf("MX found\n");
-					break;
-				case ns_t_ns:
-					printf("NS found\n");
-					break;
-				case ns_t_ptr:
-					printf("PTR found\n");
-					break;
-				case ns_t_cname:
-					printf("CNAME found\n");
-					break;
-				case ns_t_txt:
-					printf("TXT found\n");
-					printf("%s\n", ns_rr_rdata(rr));
-					break;
-				default:
-					break;
-			}
+			case ns_t_soa:
+				printf("SOA found\n");
+				break;
+			case ns_t_a:
+				printf("A found\n");
+				break;
+			case ns_t_aaaa:
+				printf("AAAA found\n");
+				break;
+			case ns_t_mx:
+				printf("MX found\n");
+				break;
+			case ns_t_ns:
+				printf("NS found\n");
+				break;
+			case ns_t_ptr:
+				printf("PTR found\n");
+				break;
+			case ns_t_cname:
+				printf("CNAME found\n");
+				break;
+			case ns_t_txt:
+				printf("TXT found\n");
+				printf("%s\n", ns_rr_rdata(rr));
+				break;
+			default:
+				break;
 		}
-
-
+	}/*
 		//return 0;
 
 		/*struct sockaddr_in sa1; // could be IPv4 if you want
@@ -164,14 +171,14 @@ int main(int argc, char* argv[])
 			printf("host=%s, serv=%s\n", hbuf, sbuf);
 	}
 	//strcpy(entryAddress, hbuf);
-
-	else
-	{
+	//else
+	//{
 		entryAddress[strlen(entryAddress)] = '\r';
 		entryAddress[strlen(entryAddress)] = '\n';
-	}
+	//}
 
-	return 0;
+	//return 0;
+
 	/* getting whois adress */
 	/* inspired by https://gist.github.com/jirihnidek/bf7a2363e480491da72301b228b35d5d by jirihnidek */
 	/******************************************************************
@@ -210,6 +217,7 @@ int main(int argc, char* argv[])
 		}
 	}
 	printf("%s\n", destinationAddress);
+	printf("%s\n", entryAddress);
 
 	int sock;
   struct sockaddr_in servaddr, cli;
@@ -230,11 +238,90 @@ int main(int argc, char* argv[])
 	//send(sock, addr, strlen(addr), 0);
 	send(sock, entryAddress, strlen(entryAddress), 0);
 	read(sock, buffer, 65535);
+	read(sock, buffer, 65535);
 	printf("%s\n", buffer);
 	//./isa-tazatel -q google.com -w whois.markmonitor.com
   // close the socket
   close(sock);
 	//free(entryAddress);
+	return 0;
+}
+
+int resolveDns(char *entryAddress, ns_type nsType)
+{
+	u_char answer[1024] = "";
+	res_init();
+	int rv = res_query(entryAddress, ns_c_in, nsType, answer, sizeof(answer));
+	//printf("rv=%d\n", rv);
+	if (rv <= 0)
+		return -1;
+
+	ns_msg handle;
+	//u_int opcode, rcode, id;
+	if (ns_initparse(answer, rv, &handle) < 0)
+		errorMsg("ERROR:ns_initparse()");
+	//opcode = ns_msg_getflag(handle, ns_f_opcode);
+	//rcode = ns_msg_getflag(handle, ns_f_rcode);
+	//id = ns_msg_id(handle);
+	//printf("%s,%s,%u\n", _res_opcodes[opcode], p_rcode(rcode), id);
+	ns_rr rr; // expanded resource record //
+	u_int16_t counter = ns_msg_count(handle, ns_s_an);
+	char buf[1024];
+	for (int i = 0; i < counter; i++)
+	{
+		ns_parserr(&handle, ns_s_an, i, &rr);
+		/*if (ns_rr_type(rr) == ns_t_a)
+			printf("A record found\n");*/
+		switch (ns_rr_type(rr))
+		{
+			case ns_t_soa:
+				printf("SOA:\t");
+				ns_sprintrr(&handle, &rr, NULL, NULL, buf, sizeof(buf));
+				printf("%s\n", buf);
+				break;
+			case ns_t_a:
+				printf("A:\t");
+				inet_ntop(AF_INET, ns_rr_rdata(rr), buf, sizeof(buf));
+				printf("%s\n", buf);
+				break;
+			case ns_t_aaaa:
+				printf("AAAA:\t");
+				inet_ntop(AF_INET6, ns_rr_rdata(rr), buf, sizeof(buf));
+				printf("%s\n", buf);
+				break;
+			case ns_t_mx:
+				printf("MX:\t");
+				//printf("%s\n", ns_rr_rdata(rr));
+				// next line inspired by https://stackoverflow.com/questions/15476717/how-to-query-a-server-and-get-the-mx-a-ns-records
+				ns_sprintrr(&handle, &rr, NULL, NULL, buf, sizeof(buf));
+				printf("%s\n", buf);
+				break;
+			case ns_t_ns:
+				printf("NS:\t");
+				ns_name_uncompress(ns_msg_base(handle), ns_msg_end(handle),
+														ns_rr_rdata(rr), buf, sizeof(buf));
+				printf("%s\n", buf);
+				break;
+			case ns_t_ptr:
+				printf("PTR:\t");
+				ns_name_uncompress(ns_msg_base(handle), ns_msg_end(handle),
+														ns_rr_rdata(rr), buf, sizeof(buf));
+				printf("%s\n", buf);
+				break;
+			case ns_t_cname:
+				printf("CNAME:\t");
+				ns_name_uncompress(ns_msg_base(handle), ns_msg_end(handle),
+														ns_rr_rdata(rr), buf, sizeof(buf));
+				printf("%s\n", buf);
+				break;
+			case ns_t_txt:
+				printf("TXT found\n");
+				printf("%s\n", ns_rr_rdata(rr));
+				break;
+			default:
+				break;
+		}
+	}
 	return 0;
 }
 
