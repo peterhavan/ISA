@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
 	resolveDns(entryAddress, ns_t_ns);
 	resolveDns(entryAddress, ns_t_soa);
 	resolveDns(entryAddress, ns_t_ptr);
-	return 0;
+	//return 0;
 	/*u_char answer[1024] = "";
 	res_init();
 	int rv = res_query(entryAddress, ns_c_in, ns_t_soa, answer, sizeof(answer));
