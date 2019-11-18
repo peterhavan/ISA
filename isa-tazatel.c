@@ -42,10 +42,10 @@
 int main(int argc, char* argv[])
 {
 	int opt;
-	bool wflag = false, qflag = false, dflag = false, ipv6Flag = false, ipv4Flag = false;;
+	bool wflag = false, qflag = false, dflag = false, ipv6Flag = false, ipv4Flag = false, oflag = false;
 	char destinationAddress[100], whoIsAddress[100], errbuf[PCAP_ERRBUF_SIZE];
 	char entryAddress[100], dnsServer[100];
-	while ((opt = getopt(argc, argv, "q:d:w:")) !=  -1)
+	while ((opt = getopt(argc, argv, "q:d:w:o")) !=  -1)
 	{
 		switch (opt)
 		{
@@ -61,6 +61,9 @@ int main(int argc, char* argv[])
 				dflag = true;
 				strcpy(dnsServer, optarg);
 				break;
+			case 'o':
+				oflag = true;
+				break;
 			default:
 				errorMsg("wrong arguments");
 		}
@@ -70,39 +73,40 @@ int main(int argc, char* argv[])
 
 	char hbuf[1024], sbuf[NI_MAXSERV];
 	strcpy(hbuf, entryAddress);
-	if (isValidIpv4Address(entryAddress))
+	if (!oflag)
 	{
-		struct sockaddr_in sa;
-		sa.sin_family = AF_INET;
-		inet_pton(AF_INET, entryAddress, &sa.sin_addr.s_addr);
-		if (getnameinfo((struct sockaddr*)&sa, sizeof(sa), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), 0));
-			printf("host=%s, serv=%s\n", hbuf, sbuf);
+		if (isValidIpv4Address(entryAddress))
+		{
+			struct sockaddr_in sa;
+			sa.sin_family = AF_INET;
+			inet_pton(AF_INET, entryAddress, &sa.sin_addr.s_addr);
+			if (getnameinfo((struct sockaddr*)&sa, sizeof(sa), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), 0));
+				printf("host=%s, serv=%s\n", hbuf, sbuf);
+		}
+		else if(isValidIpv6Address(entryAddress))
+		{
+			struct sockaddr_in6 sa6;
+			sa6.sin6_family = AF_INET6;
+			inet_pton(AF_INET6, entryAddress, &sa6.sin6_addr.s6_addr);
+			if (getnameinfo((struct sockaddr*)&sa6, sizeof(sa6), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), 0))
+				printf("host=%s, serv=%s\n", hbuf, sbuf);
+		}
 	}
-	else if(isValidIpv6Address(entryAddress))
-	{
-		struct sockaddr_in6 sa6;
-		sa6.sin6_family = AF_INET6;
-		inet_pton(AF_INET6, entryAddress, &sa6.sin6_addr.s6_addr);
-		if (getnameinfo((struct sockaddr*)&sa6, sizeof(sa6), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), 0))
-			printf("host=%s, serv=%s\n", hbuf, sbuf);
-	}
-
 	char aRecords[MAXRECORDS][ARECORDLEN];
 	char aaaaRecords[MAXRECORDS][AAAARECORDLEN];
+	int aCount = 0;
+	int aaaaCount = 0;
 	res_init();
 	if (dflag)
 		inet_pton(AF_INET, dnsServer, &(_res.nsaddr_list[0].sin_addr.s_addr));
 	printf("========DNS========\n");
-	resolveDns(hbuf, ns_t_a, aRecords, aaaaRecords);
-	resolveDns(hbuf, ns_t_aaaa, aRecords, aaaaRecords);
+	aCount = resolveDns(hbuf, ns_t_a, aRecords, aaaaRecords);
+	aaaaCount = resolveDns(hbuf, ns_t_aaaa, aRecords, aaaaRecords);
 	resolveDns(hbuf, ns_t_mx, aRecords, aaaaRecords);
 	resolveDns(hbuf, ns_t_cname, aRecords, aaaaRecords);
 	resolveDns(hbuf, ns_t_ns, aRecords, aaaaRecords);
 	resolveDns(hbuf, ns_t_soa, aRecords, aaaaRecords);
 	resolveDns(entryAddress, ns_t_ptr, aRecords, aaaaRecords);
-
-	entryAddress[strlen(entryAddress)] = '\r';
-	entryAddress[strlen(entryAddress)] = '\n';
 
 	/* getting whois adress */
 	/* inspired by https://gist.github.com/jirihnidek/bf7a2363e480491da72301b228b35d5d by jirihnidek */
@@ -142,7 +146,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	int sock;
+/*	int sock;
   struct sockaddr_in servaddr;
   sock = socket(AF_INET, SOCK_STREAM, 0);
   if (sock == -1)
@@ -152,12 +156,18 @@ int main(int argc, char* argv[])
   servaddr.sin_addr.s_addr = inet_addr(destinationAddress);
   servaddr.sin_port = htons(PORT);
   if (connect(sock, (SA*)&servaddr, sizeof(servaddr)) != 0)
-		errorMsg("connect(): FAILED");
-	char buffer[65535];
+		errorMsg("connect(): FAILED");*/
+
+	entryAddress[strlen(entryAddress)] = '\r';
+	entryAddress[strlen(entryAddress)] = '\n';
+	myWhois(entryAddress, destinationAddress);
+
+
+/*	char buffer[65535];
 	char *line = NULL;
 
 	send(sock, entryAddress, strlen(entryAddress), 0);
-	int n = read(sock, buffer, 65535);
+	read(sock, buffer, 65535);
 
 	regex_t re;
 	int retval;
@@ -171,19 +181,74 @@ int main(int argc, char* argv[])
 				printf("%s\n", line);
 		//printf ("%s\n", line);
 		line = strtok(NULL, "\n");
-	}
+	}*/
 
 	//./isa-tazatel -q google.com -w whois.markmonitor.com
-  close(sock);
 	printf("--------------------------------\n");
-	for (int o = 0; o < 10; o++)
+	for (int i = 0; i < aCount; i++)
 	{
-		if(strlen(aRecords[o]) > 0)
-			printf("A:\t%s\n", aRecords[o]);
-		if(strlen(aaaaRecords[o]) > 0)
-			printf("AAAA:\t%s\n", aaaaRecords[o]);
+		//if(strlen(aRecords[i]) > 0)
+			//printf("A:\t%s\n", aRecords[i]);
+		aRecords[i][strlen(aRecords[i])] = '\r';
+		aRecords[i][strlen(aRecords[i])] = '\n';
+		printf("\nfor A:\t%s\n", aRecords[i]);
+		myWhois(aRecords[i], destinationAddress);
 	}
+
+	for (int i = 0; i < aaaaCount; i++)
+	{
+		//if(strlen(aaaaRecords[i]) > 0)
+			//printf("AAAA:\t%s\n", aaaaRecords[i]);
+		aaaaRecords[i][strlen(aaaaRecords[i])] = '\r';
+		aaaaRecords[i][strlen(aaaaRecords[i])] = '\n';
+		printf("\nfor AAAA:\t%s\n", aaaaRecords[i]);
+		myWhois(aaaaRecords[i], destinationAddress);
+	}
+//close(sock);
 	return 0;
+}
+
+void myWhois(char *entryAddress, char *destinationAddress)
+{
+	int sock;
+	struct sockaddr_in servaddr;
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock == -1)
+		errorMsg("socket(): FAILED");
+	bzero(&servaddr, sizeof(servaddr));
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr = inet_addr(destinationAddress);
+	servaddr.sin_port = htons(PORT);
+	if (connect(sock, (SA*)&servaddr, sizeof(servaddr)) != 0)
+		errorMsg("connect(): FAILED");
+	char buffer[131072];
+	char *line = NULL;
+	//printf("--------entryAddress\t%s\n",entryAddress);
+	send(sock, entryAddress, strlen(entryAddress), 0);
+	//int n = read(sock, buffer, 131072);
+	int n = 1;
+	int offset = 0;
+	while (n != 0)
+	{
+		n = read(sock, buffer + offset, 131072 - offset);
+		printf("n=%d\n", n);
+		offset += n;
+	}
+	printf("offset=%d\n", offset);
+	regex_t re;
+	int retval;
+	line = strtok(buffer, "\n");
+	char *expression = "(^inetnum)|(^address)|(^admin-c)|(^country)|(^descr)|(^phone)";
+	while( line != NULL )
+	{
+		if (regcomp(&re, expression, REG_EXTENDED) != 0)
+			errorMsg("ERROR: regcomp()");
+		if ((retval = regexec(&re, line, 0, NULL, 0)) == 0)
+				printf("%s\n", line);
+		//printf ("%s\n", line);
+		line = strtok(NULL, "\n");
+	}
+	close(sock);
 }
 
 int resolveDns(char *entryAddress, ns_type nsType,
@@ -235,7 +300,7 @@ int resolveDns(char *entryAddress, ns_type nsType,
 				printf("A:\t");
 				inet_ntop(AF_INET, ns_rr_rdata(rr), buf, sizeof(buf));
 				printf("%s\n", buf);
-				strncpy(aRecords[aCount], buf, sizeof(aRecords[aCount]));
+				strncpy(aRecords[aCount], buf, ARECORDLEN);
 				aCount++;
 				break;
 			case ns_t_aaaa:
@@ -244,7 +309,7 @@ int resolveDns(char *entryAddress, ns_type nsType,
 				printf("%s\n", buf);
 				strncpy(aaaaRecords[aaaaCount], buf, AAAARECORDLEN);
 				//strcpy(aaaaRecords[aaaaCount], buf);
-				printf("%s\n", aaaaRecords[aaaaCount]);
+				//printf("%s\n", aaaaRecords[aaaaCount]);
 				aaaaCount++;
 				break;
 			case ns_t_mx:
@@ -279,6 +344,10 @@ int resolveDns(char *entryAddress, ns_type nsType,
 				break;
 		}
 	}
+	if (nsType == ns_t_a)
+		return aCount;
+	if (nsType == ns_t_aaaa)
+		return aaaaCount;
 	return 0;
 }
 
