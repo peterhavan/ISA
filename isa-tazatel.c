@@ -159,6 +159,7 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
+	freeaddrinfo(res);
 	green();
 	printf("===============WHOIS===============\n");
 	printf("for:\t%s\n", entryAddress);
@@ -190,6 +191,7 @@ int main(int argc, char* argv[])
 		printf("for AAAA:\t%s\n", aaaaRecords[i]);
 		myWhois(aaaaRecords[i], destinationAddress);
 	}
+
 	reset();
 	return 0;
 }
@@ -238,8 +240,10 @@ void myWhois(char *entryAddress, char *destinationAddress)
 		if ((retval = regexec(&re, line, 0, NULL, 0)) == 0)
 				printf("%s\n", line);
 		//printf("%s\n", line);
+		regfree(&re);
 		line = strtok(NULL, "\n");
 	}
+	//regfree(&re);
 	close(sock);
 }
 
