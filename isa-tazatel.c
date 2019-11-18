@@ -166,7 +166,6 @@ int main(int argc, char* argv[])
 	// when asking whois, the message has to end with ASCII <CR><LF>
 	entryAddress[strlen(entryAddress)] = '\r';
 	entryAddress[strlen(entryAddress)] = '\n';
-	printf("for:\t%s\n", entryAddress);
 	// first ask whois server about input address/hostname given in option -q
 	myWhois(entryAddress, destinationAddress);
 	// loop through list of A and AAAA records and ask whois for each of them
@@ -188,7 +187,7 @@ int main(int argc, char* argv[])
 		aaaaRecords[i][strlen(aaaaRecords[i])] = '\n';
 		green();
 		printf("-----------------------------------\n");
-		printf("for AAAA:\t%s\n", aaaaRecords[i]);
+		printf("for record AAAA:\t%s\n", aaaaRecords[i]);
 		myWhois(aaaaRecords[i], destinationAddress);
 	}
 

@@ -1,0 +1,19 @@
+PTR records are working only for IPv4, IPv6 reverse is not implemeted.
+
+When IPv4 or IPv6 is given with argument q, my program attempts to get its hostname so that it can get DNS records. Might be considered a feature or unwanted behaviour, as this is done with getnameinfo() function. This behaviour is unwanted, it can be disabled with option -o
+
+some whois servers might not produce any output if they do not match regular expression
+
+asks whois server about up to 10 A records and up to 10 AAAA records
+
+list of files:
+manual.pdf
+Makefile
+isa-tazatel.c
+isa-tazatel.h
+
+examples:
+make
+./isa-tazatel -q www.fit.vutbr.cz -w whois.ripe.net -d dns.google -o
+
+
